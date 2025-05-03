@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
@@ -68,7 +69,7 @@ fun MainScreenContent(
         if (useDefaultLogo) {
             // Încercăm să afișăm iconița din resurse
             Icon(
-                imageVector = Icons.Default.Chat,
+                imageVector = Icons.AutoMirrored.Filled.Chat,
                 contentDescription = "Logo aplicație",
                 modifier = Modifier.size(120.dp),
                 tint = MaterialTheme.colorScheme.primary
@@ -90,11 +91,11 @@ fun MainScreenContent(
             modifier = Modifier.padding(vertical = 8.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.Chat,
+                imageVector = Icons.AutoMirrored.Filled.Chat,
                 contentDescription = null,
                 modifier = Modifier.padding(end = 8.dp)
             )
-            Text("Deschide Chat")
+            Text("Conversațiile Mele")
         }
         
         Button(

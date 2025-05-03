@@ -60,21 +60,27 @@ fun AppNavHost(
     ) {
         composable(route = AppScreens.Main.route) {
             MainScreen(
-                onNavigateToChat = { navController.navigate(AppScreens.Chat.route) },
+                onNavigateToChat = { navController.navigate(AppScreens.Conversations.route) },
                 onNavigateToSettings = { navController.navigate(AppScreens.Settings.route) }
             )
         }
         
         composable(route = AppScreens.Chat.route) {
             ChatScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onNavigateToConversations = { navController.navigate(AppScreens.Conversations.route) }
+                onNavigateBack = { navController.navigate(AppScreens.Conversations.route) {
+                    popUpTo(AppScreens.Conversations.route) { inclusive = false }
+                }},
+                onNavigateToConversations = { navController.navigate(AppScreens.Conversations.route) {
+                    popUpTo(AppScreens.Conversations.route) { inclusive = true }
+                }}
             )
         }
         
         composable(route = AppScreens.Conversations.route) {
             ConversationsScreen(
-                onNavigateBack = { navController.popBackStack() },
+                onNavigateBack = { navController.navigate(AppScreens.Main.route) {
+                    popUpTo(AppScreens.Main.route) { inclusive = true }
+                }},
                 onSelectConversation = { conversationId ->
                     navController.navigate(AppScreens.Chat.route)
                 }

@@ -61,7 +61,7 @@ interface AIApiInterface {
 class AIApiService {
     companion object {
         private const val BASE_URL = "https://api.openai.com/"
-        private const val API_KEY = "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" // Trebuie completat cu cheia API reală
+        private const val API_KEY = "" // Trebuie completat cu cheia API
 
         private val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY

@@ -69,7 +69,7 @@ fun ChatScreen(
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Înapoi")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Înapoi la conversații")
                         }
                     },
                     actions = {

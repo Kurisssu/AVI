@@ -1,8 +1,16 @@
 [versions]
 agp = "8.9.2"
+aiFalconAndroid = "1.0.0"
+androidVoiceProcessor = "1.0.3"
+androidVoiceProcessorVersion = "1.0.1"
+cobraAndroid = "1.1.0"
 converterGson = "2.9.0"
+falconAndroid = "2.0.1"
+falconAndroidVersion = "1.0.0"
 googleApiClientAndroid = "2.2.0"
 googleApiServicesSpeech = "v1-rev20230701-2.0.0"
+gson = "2.10.1"
+koalaAndroid = "1.0.1"
 kotlin = "2.0.21"
 coreKtx = "1.10.1"
 junit = "4.13.2"
@@ -20,22 +28,36 @@ loggingInterceptor = "4.11.0"
 lottieCompose = "6.0.1"
 materialIconsExtended = "1.5.4"
 okhttp = "4.11.0"
+picovoiceAndroid = "2.2.0"
+picovoiceCommonAndroid = "3.0.0"
+picovoiceCommonAndroidVersion = "1.0.0"
 playServicesAuth = "20.7.0"
 playServicesMlkitSpeech = "17.0.0"
+porcupineAndroid = "2.2.1"
 retrofit = "2.9.0"
 navigationRuntimeAndroid = "2.9.0-rc01"
 navigationCompose = "2.8.9"
+rhinoAndroid = "2.2.1"
+sherpaOnnx = "1.11.4"
+sherpaOnnxAndroid = "1.11.4"
 
 [libraries]
+android-voice-processor = { module = "ai.picovoice:android-voice-processor", version = "1.0.2" }
+android-voice-processor-v101 = { module = "ai.picovoice:android-voice-processor", version.ref = "androidVoiceProcessorVersion" }
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleViewmodelCompose" }
 androidx-lifecycle-runtime-compose-v262 = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "lifecycleRuntimeCompose" }
 androidx-lifecycle-viewmodel-compose = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelCompose" }
 androidx-lifecycle-viewmodel-compose-v262 = { module = "androidx.lifecycle:lifecycle-viewmodel-compose", version.ref = "lifecycleViewmodelComposeVersion" }
 androidx-material-icons-extended = { module = "androidx.compose.material:material-icons-extended", version.ref = "materialIconsExtended" }
+cheetah-android = { module = "ai.picovoice:cheetah-android", version.ref = "cobraAndroid" }
+cobra-android = { module = "ai.picovoice:cobra-android", version.ref = "cobraAndroid" }
 converter-gson = { module = "com.squareup.retrofit2:converter-gson", version.ref = "converterGson" }
+falcon-android = { module = "ai.picovoice:falcon-android", version = "1.0.1" }
+falcon-android-v100 = { module = "ai.picovoice:falcon-android", version = "1.0.1" }
 google-api-client-android = { module = "com.google.api-client:google-api-client-android", version.ref = "googleApiClientAndroid" }
 google-api-services-speech = { module = "com.google.apis:google-api-services-speech", version.ref = "googleApiServicesSpeech" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
@@ -49,16 +71,25 @@ androidx-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-toolin
 androidx-ui-test-manifest = { group = "androidx.compose.ui", name = "ui-test-manifest" }
 androidx-ui-test-junit4 = { group = "androidx.compose.ui", name = "ui-test-junit4" }
 androidx-material3 = { group = "androidx.compose.material3", name = "material3" }
+koala-android = { module = "ai.picovoice:koala-android", version = "1.0.0" }
 kotlinx-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "kotlinxCoroutinesAndroid" }
 kotlinx-coroutines-play-services = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-play-services", version.ref = "kotlinxCoroutinesPlayServices" }
 logging-interceptor = { module = "com.squareup.okhttp3:logging-interceptor", version.ref = "loggingInterceptor" }
 lottie-compose = { module = "com.airbnb.android:lottie-compose", version.ref = "lottieCompose" }
 okhttp = { module = "com.squareup.okhttp3:okhttp", version.ref = "okhttp" }
+picovoice-android = { module = "ai.picovoice:picovoice-android", version.ref = "picovoiceAndroid" }
+picovoice-common-android = { module = "ai.picovoice:picovoice-common-android", version.ref = "picovoiceCommonAndroid" }
+picovoice-common-android-v100 = { module = "ai.picovoice:picovoice-common-android", version.ref = "picovoiceCommonAndroidVersion" }
+picovoice-falcon-android-v100 = { module = "ai.picovoice:falcon-android", version.ref = "aiFalconAndroid" }
 play-services-auth = { module = "com.google.android.gms:play-services-auth", version.ref = "playServicesAuth" }
 play-services-mlkit-speech = { module = "com.google.android.gms:play-services-mlkit-speech", version.ref = "playServicesMlkitSpeech" }
+porcupine-android = { module = "ai.picovoice:porcupine-android", version.ref = "porcupineAndroid" }
 retrofit = { module = "com.squareup.retrofit2:retrofit", version.ref = "retrofit" }
 androidx-navigation-runtime-android = { group = "androidx.navigation", name = "navigation-runtime-android", version.ref = "navigationRuntimeAndroid" }
 androidx-navigation-compose = { group = "androidx.navigation", name = "navigation-compose", version.ref = "navigationCompose" }
+rhino-android = { module = "ai.picovoice:rhino-android", version.ref = "rhinoAndroid" }
+sherpa-onnx = { module = "com.github.k2-fsa:sherpa-onnx", version.ref = "sherpaOnnx" }
+sherpa-onnx-android = { module = "com.github.k2-fsa:sherpa-onnx-android", version.ref = "sherpaOnnxAndroid" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
