@@ -57,10 +57,10 @@ fun ConversationsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Conversații") },
+                title = { Text("Conversations") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Înapoi")
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -69,7 +69,7 @@ fun ConversationsScreen(
             FloatingActionButton(
                 onClick = { showNewConversationDialog = true }
             ) {
-                Icon(Icons.Default.Add, contentDescription = "Conversație nouă")
+                Icon(Icons.Default.Add, contentDescription = "New conversation")
             }
         }
     ) { paddingValues ->
@@ -84,7 +84,7 @@ fun ConversationsScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     Text(
-                        text = "Nu există conversații.\nApasă pe + pentru a crea o conversație nouă.",
+                        text = "No conversations.\nPress + to create a new conversation.",
                         style = MaterialTheme.typography.bodyLarge
                     )
                 }
@@ -132,7 +132,7 @@ fun ConversationsScreen(
                                     }) {
                                         Icon(
                                             imageVector = Icons.Default.Delete,
-                                            contentDescription = "Șterge conversația"
+                                            contentDescription = "Delete conversation"
                                         )
                                     }
                                 }
@@ -149,24 +149,24 @@ fun ConversationsScreen(
                     showNewConversationDialog = false 
                     newConversationTitle = ""
                 },
-                title = { Text("Conversație nouă") },
+                title = { Text("New conversation") },
                 text = { 
                     TextField(
                         value = newConversationTitle,
                         onValueChange = { newConversationTitle = it },
-                        label = { Text("Titlu conversație") }
+                        label = { Text("Conversation title") }
                     )
                 },
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            val title = if (newConversationTitle.isBlank()) "Conversație nouă" else newConversationTitle
+                            val title = if (newConversationTitle.isBlank()) "New conversation" else newConversationTitle
                             viewModel.createNewConversation(title)
                             showNewConversationDialog = false
                             newConversationTitle = ""
                         }
                     ) {
-                        Text("Creează")
+                        Text("Create")
                     }
                 },
                 dismissButton = {
@@ -176,7 +176,7 @@ fun ConversationsScreen(
                             newConversationTitle = ""
                         }
                     ) {
-                        Text("Anulează")
+                        Text("Cancel")
                     }
                 }
             )
@@ -186,5 +186,5 @@ fun ConversationsScreen(
 
 // Extension function pentru afișarea titlului conversației
 fun Conversation.getDisplayTitle(): String {
-    return if (this.title.isBlank()) "Conversație fără titlu" else this.title
+    return if (this.title.isBlank()) "Untitled conversation" else this.title
 } 

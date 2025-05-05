@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Chat
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -32,19 +33,21 @@ import com.example.aviv1.R
 @Composable
 fun MainScreen(
     onNavigateToChat: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToDiarization: () -> Unit
 ) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Asistent Vocal Inteligent") }
+                title = { Text("Intelligent Voice Assistant") }
             )
         }
     ) { paddingValues ->
         MainScreenContent(
             paddingValues = paddingValues,
             onNavigateToChat = onNavigateToChat,
-            onNavigateToSettings = onNavigateToSettings
+            onNavigateToSettings = onNavigateToSettings,
+            onNavigateToDiarization = onNavigateToDiarization
         )
     }
 }
@@ -53,7 +56,8 @@ fun MainScreen(
 fun MainScreenContent(
     paddingValues: PaddingValues,
     onNavigateToChat: () -> Unit,
-    onNavigateToSettings: () -> Unit
+    onNavigateToSettings: () -> Unit,
+    onNavigateToDiarization: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -70,7 +74,7 @@ fun MainScreenContent(
             // Încercăm să afișăm iconița din resurse
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.Chat,
-                contentDescription = "Logo aplicație",
+                contentDescription = "App logo",
                 modifier = Modifier.size(120.dp),
                 tint = MaterialTheme.colorScheme.primary
             )
@@ -79,7 +83,7 @@ fun MainScreenContent(
         Spacer(modifier = Modifier.height(24.dp))
         
         Text(
-            text = "Bine ai venit la\nAsistentul Vocal Inteligent",
+            text = "Welcome to\nIntelligent Voice Assistant",
             style = MaterialTheme.typography.headlineSmall,
             textAlign = TextAlign.Center
         )
@@ -95,7 +99,19 @@ fun MainScreenContent(
                 contentDescription = null,
                 modifier = Modifier.padding(end = 8.dp)
             )
-            Text("Conversațiile Mele")
+            Text("My Conversations")
+        }
+        
+        Button(
+            onClick = onNavigateToDiarization,
+            modifier = Modifier.padding(vertical = 8.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.RecordVoiceOver,
+                contentDescription = null,
+                modifier = Modifier.padding(end = 8.dp)
+            )
+            Text("Dialog Detection")
         }
         
         Button(
@@ -107,7 +123,7 @@ fun MainScreenContent(
                 contentDescription = null,
                 modifier = Modifier.padding(end = 8.dp)
             )
-            Text("Setări")
+            Text("Settings")
         }
     }
 } 

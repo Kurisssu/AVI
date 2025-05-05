@@ -5,11 +5,15 @@ import android.speech.tts.Voice
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.aviv1.model.Conversation
+import com.example.aviv1.model.DialogSegment
 import com.example.aviv1.model.Message
 import com.example.aviv1.model.MessageType
 import com.example.aviv1.repository.ConversationRepository
 import com.example.aviv1.service.AIApiService
 import com.example.aviv1.service.AIMessage
+import com.example.aviv1.service.ApiKeyManager
+import com.example.aviv1.service.AudioTranscriptionService
+import com.example.aviv1.service.SpeakerDiarizationService
 import com.example.aviv1.service.SpeechRecognitionService
 import com.example.aviv1.service.TextToSpeechService
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -18,6 +22,8 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
+import android.util.Log
 
 class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
@@ -25,6 +31,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val aiApiService = AIApiService()
     private val conversationRepository = ConversationRepository(application.applicationContext)
     private val textToSpeechService = TextToSpeechService(application.applicationContext)
+    
+    // Servicii pentru diarizare și transcriere
+    private val diarizationService = SpeakerDiarizationService(application.applicationContext)
+    private val transcriptionService = AudioTranscriptionService(application.applicationContext)
+    
+    // Manager pentru cheile API
+    private val apiKeyManager = ApiKeyManager.getInstance(application.applicationContext)
     
     // Starea mesajelor din conversație - acum obținute din conversația activă
     private val _messages = MutableStateFlow<List<Message>>(emptyList())
@@ -56,76 +69,383 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     private val _selectedMessageForTts = MutableStateFlow<Message?>(null)
     val selectedMessageForTts: StateFlow<Message?> = _selectedMessageForTts.asStateFlow()
     
+    // Stare pentru diarizare și transcriere
+    private val _isDiarizationRecording = MutableStateFlow(false)
+    val isDiarizationRecording: StateFlow<Boolean> = _isDiarizationRecording.asStateFlow()
+    
+    private val _isDiarizationProcessing = MutableStateFlow(false)
+    val isDiarizationProcessing: StateFlow<Boolean> = _isDiarizationProcessing.asStateFlow()
+    
+    private val _diarizationSegments = MutableStateFlow<List<DialogSegment>>(emptyList())
+    val diarizationSegments: StateFlow<List<DialogSegment>> = _diarizationSegments.asStateFlow()
+    
+    // Stocare temporară pentru datele audio capturate
+    private var capturedPcmData: ShortArray? = null
+    
     init {
-        // Inițializăm serviciul de recunoaștere vocală
+        // Inițializare AIApiService
+        aiApiService.initialize(application.applicationContext)
+        
+        // Inițializare SpeechRecognitionService
         speechRecognitionService.initialize()
         
-        // Monitorizăm textul recunoscut
+        // Observare mesaje din conversația activă
         viewModelScope.launch {
-            speechRecognitionService.recognizedText.collectLatest { text ->
+            activeConversation.collectLatest { conversation ->
+                conversation?.let {
+                    _messages.value = it.messages
+                }
+            }
+        }
+        
+        // Observare text recunoscut
+        viewModelScope.launch {
+            speechRecognitionService.recognizedText.collect { text ->
+                Log.d("ChatViewModel", "Received recognized text: '$text'")
                 _currentRecognizedText.value = text
             }
         }
         
-        // Monitorizăm starea de înregistrare
+        // Observare stare înregistrare
         viewModelScope.launch {
-            speechRecognitionService.isRecording.collectLatest { isRecording ->
-                _isRecording.value = isRecording
+            speechRecognitionService.isRecording.collect { recording ->
+                _isRecording.value = recording
             }
         }
         
-        // Monitorizăm conversația activă și actualizăm mesajele
+        // Observare rezultate diarizare
         viewModelScope.launch {
-            conversationRepository.activeConversationFlow.collectLatest { conversation ->
-                _messages.value = conversation?.messages ?: emptyList()
+            diarizationService.diarizationResult.collect { falconSegments ->
+                val dialogSegments = DialogSegment.fromFalconSegments(falconSegments)
+                _diarizationSegments.value = dialogSegments
+                
+                // Dacă avem rezultate și datele audio sunt disponibile, începem transcrierea
+                if (dialogSegments.isNotEmpty() && capturedPcmData != null) {
+                    transcribeDialogSegments(dialogSegments, capturedPcmData!!)
+                }
             }
         }
         
-        // Creăm o conversație implicită dacă nu există niciuna
+        // Observare stare procesare diarizare
         viewModelScope.launch {
-            conversationRepository.createDefaultConversationIfNeeded()
+            diarizationService.isProcessing.collect { isProcessing ->
+                _isDiarizationProcessing.value = isProcessing
+            }
+        }
+        
+        // Inițializarea serviciilor de diarizare și transcriere
+        initializeDiarizationServices()
+    }
+    
+    private fun initializeDiarizationServices() {
+        viewModelScope.launch {
+            try {
+                // Obținem cheia de acces securizată
+                val accessKey = apiKeyManager.getPicovoiceAccessKey()
+                
+                // Inițializare serviciu diarizare
+                diarizationService.initialize(accessKey)
+                
+                // Inițializare serviciu transcriere
+                transcriptionService.initialize(accessKey)
+            } catch (e: Exception) {
+                // Tratare eroare inițializare
+                addSystemMessage("Error initializing speech recognition services: ${e.message}")
+            }
         }
     }
     
-    // === FUNCȚII PENTRU TTS (TEXT-TO-SPEECH) ===
+    // === FUNCȚII PENTRU DIARIZARE ȘI TRANSCRIERE ===
     
-    /**
-     * Redă un mesaj prin TTS
-     */
-    fun speakMessage(message: Message) {
-        _selectedMessageForTts.value = message
-        textToSpeechService.speak(message.content)
-    }
-    
-    /**
-     * Oprește redarea TTS
-     */
-    fun stopSpeaking() {
-        textToSpeechService.stop()
-        _selectedMessageForTts.value = null
-    }
-    
-    /**
-     * Schimbă vocea TTS
-     */
-    fun setTtsVoice(voice: Voice) {
-        textToSpeechService.setVoice(voice)
-    }
-    
-    // === FUNCȚII PENTRU CONVERSAȚII ===
-    
-    /**
-     * Creează o nouă conversație
-     */
-    fun createNewConversation(title: String = "Conversație nouă") {
+    // Funcție pentru a porni înregistrarea pentru diarizare
+    fun startDiarizationRecording() {
         viewModelScope.launch {
+            try {
+                // Curățăm datele anterioare
+                capturedPcmData = null
+                _diarizationSegments.value = emptyList()
+                
+                // Actualizăm starea înainte de a porni înregistrarea efectivă
+                _isDiarizationRecording.value = true
+                diarizationService.startRecording()
+                
+                // Anunțăm utilizatorul că înregistrăm
+                addSystemMessage("Recording conversation... Speak to detect dialog.")
+            } catch (e: Exception) {
+                // În caz de eroare, resetăm starea
+                _isDiarizationRecording.value = false
+                addSystemMessage("Error starting conversation recording: ${e.message}")
+            }
+        }
+    }
+    
+    // Funcție pentru a opri înregistrarea și procesa conversația
+    fun stopDiarizationRecording() {
+        viewModelScope.launch {
+            try {
+                // Actualizăm starea imediat
+                _isDiarizationRecording.value = false
+                addSystemMessage("Processing recorded conversation...")
+                
+                // Salvăm o referință la datele PCM înainte de oprirea înregistrării
+                val pcmData = diarizationService.getCapturedPcmData()
+                capturedPcmData = pcmData
+                
+                // Oprim înregistrarea și procesăm datele
+                diarizationService.stopRecording()
+                
+                // Ne asigurăm că starea isProcessing se resetează după finalizarea procesării
+                delay(500)
+                _isDiarizationProcessing.value = false
+            } catch (e: Exception) {
+                _isDiarizationProcessing.value = false
+                addSystemMessage("Error processing conversation: ${e.message}")
+            }
+        }
+    }
+    
+    // Funcție pentru transcrierea segmentelor de dialog
+    private fun transcribeDialogSegments(segments: List<DialogSegment>, pcmData: ShortArray) {
+        viewModelScope.launch {
+            try {
+                // Actualizăm segmentele de dialog cu textul transcris
+                val updatedSegments = segments.mapIndexed { index, segment ->
+                    // Transcriem segmentul
+                    val result = transcriptionService.transcribeSegment(
+                        pcmData, 
+                        segment.startTime, 
+                        segment.endTime
+                    )
+                    
+                    if (result.isSuccessful) {
+                        // Actualizăm segmentul cu textul transcris
+                        segment.copy(
+                            text = result.text,
+                            confidence = 0.8f  // Valoare implicită
+                        )
+                    } else {
+                        segment
+                    }
+                }
+                
+                // Actualizăm lista de segmente
+                _diarizationSegments.value = updatedSegments
+                
+                // Verificăm doar dacă avem text, nu mai întrebăm utilizatorul
+                if (updatedSegments.any { it.text.isNotEmpty() }) {
+                    addSystemMessage("Conversation detected and transcribed. Analyzing...")
+                } else {
+                    addSystemMessage("Could not transcribe the conversation. Please try again.")
+                }
+            } catch (e: Exception) {
+                addSystemMessage("Error transcribing conversation: ${e.message}")
+            }
+        }
+    }
+    
+    // Funcție pentru a genera un prompt din segmentele de dialog și a-l trimite la ChatGPT
+    fun sendDiarizationResultToChat() {
+        viewModelScope.launch {
+            try {
+                val segments = _diarizationSegments.value
+                if (segments.isEmpty() || segments.all { it.text.isEmpty() }) {
+                    addSystemMessage("No transcribed conversation to analyze.")
+                    return@launch
+                }
+                
+                // Construim mesajul vizibil pentru utilizator - doar textul transcris
+                val visibleUserContent = buildString {
+                    segments.forEach { segment ->
+                        if (segment.text.isNotEmpty()) {
+                            append("Speaker ${segment.speakerTag}: ${segment.text}\n")
+                        }
+                    }
+                }
+                
+                // Construim promptul complet pentru API (invizibil pentru utilizator)
+                val apiPrompt = buildString {
+                    segments.forEach { segment ->
+                        if (segment.text.isNotEmpty()) {
+                            append("Speaker ${segment.speakerTag}: ${segment.text}\n")
+                        }
+                    }
+                    append("\nYou are an intelligent voice assistant. " +
+                        "Extract the questions from the user's conversation and answer only to them, concisely and clearly with helpful and accurate information. " +
+                            "If there are no explicit questions, interpret the user's intent and provide a useful response. Always respond in speakers language." +
+                            "IMPORTANT: only structured and clear answers to questions.")
+                }
+                
+                // Adăugăm mesajul vizibil la conversație pentru utilizator
+                val userMessage = Message(
+                    content = visibleUserContent,
+                    type = MessageType.USER
+                )
+                
+                addMessageToConversation(userMessage)
+                
+                // Folosim promptul complet pentru API, nu mesajul vizibil
+                getAIResponseWithCustomPrompt(apiPrompt)
+            } catch (e: Exception) {
+                addSystemMessage("Error sending conversation for analysis: ${e.message}")
+            }
+        }
+    }
+    
+    // Funcție specializată pentru a trimite un prompt personalizat către API,
+    // fără a modifica mesajul afișat utilizatorului
+    private fun getAIResponseWithCustomPrompt(apiPrompt: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            
+            // Adăugăm un mesaj temporar care indică încărcarea
+            val loadingMessage = Message(
+                content = "Generate the response...",
+                type = MessageType.ASSISTANT,
+                isProcessing = true
+            )
+            addMessageToConversation(loadingMessage)
+            
+            try {
+                // Pregătim mesajele pentru API
+                val messageHistory = mutableListOf<AIMessage>()
+                
+                // Adăugăm un sistem prompt specific pentru analiza conversației
+                messageHistory.add(AIMessage(
+                    role = "system",
+                    content = "You are an intelligent voice assistant. " +
+                            "Extract the questions from the user's conversation and answer only to them, concisely and clearly with helpful and accurate information. " +
+                            "If there are no explicit questions, interpret the user's intent and provide a useful response. Always respond in speakers language." +
+                            "IMPORTANT: only structured and clear answers to questions."
+                ))
+                
+                // Adăugăm promptul personalizat
+                messageHistory.add(AIMessage(
+                    role = "user",
+                    content = apiPrompt
+                ))
+                
+                // Obținem răspunsul de la API
+                val response = aiApiService.getAIResponse(messageHistory)
+                
+                // Înlocuim mesajul de loading cu răspunsul primit
+                val assistantMessage = Message(
+                    content = response,
+                    type = MessageType.ASSISTANT
+                )
+                
+                // Actualizăm conversația pentru a înlocui mesajul de loading cu răspunsul final
+                activeConversation.value?.let { conversation ->
+                    val updatedMessages = conversation.messages.toMutableList()
+                    
+                    // Găsim și înlocuim mesajul de loading
+                    val loadingIndex = updatedMessages.indexOfLast { it.isProcessing }
+                    if (loadingIndex != -1) {
+                        updatedMessages[loadingIndex] = assistantMessage
+                    } else {
+                        // În caz că nu găsim mesajul de loading, adăugăm răspunsul la final
+                        updatedMessages.add(assistantMessage)
+                    }
+                    
+                    val updatedConversation = conversation.copy(
+                        messages = updatedMessages,
+                        updatedAt = java.util.Date()
+                    )
+                    
+                    conversationRepository.updateConversation(updatedConversation)
+                    
+                    // Citim automat răspunsul asistentului
+                    setSelectedMessageForTts(assistantMessage)
+                }
+            } catch (e: Exception) {
+                // În caz de eroare, înlocuim mesajul de loading cu mesajul de eroare
+                val errorMessage = Message(
+                    content = "Error: ${e.message}",
+                    type = MessageType.ASSISTANT
+                )
+                
+                // Actualizăm conversația pentru a înlocui mesajul de loading cu mesajul de eroare
+                activeConversation.value?.let { conversation ->
+                    val updatedMessages = conversation.messages.toMutableList()
+                    
+                    // Găsim și înlocuim mesajul de loading
+                    val loadingIndex = updatedMessages.indexOfLast { it.isProcessing }
+                    if (loadingIndex != -1) {
+                        updatedMessages[loadingIndex] = errorMessage
+                    } else {
+                        // În caz că nu găsim mesajul de loading, adăugăm mesajul de eroare la final
+                        updatedMessages.add(errorMessage)
+                    }
+                    
+                    val updatedConversation = conversation.copy(
+                        messages = updatedMessages,
+                        updatedAt = java.util.Date()
+                    )
+                    
+                    conversationRepository.updateConversation(updatedConversation)
+                }
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    // Funcție pentru a adăuga un mesaj de sistem informativ
+    private fun addSystemMessage(text: String) {
+        // Adăugăm mesajul ca un răspuns de la asistent, dar marcat special
+        val message = Message(
+            content = text,
+            type = MessageType.ASSISTANT
+        )
+        
+        addMessageToConversation(message)
+    }
+    
+    // === FUNCȚII PENTRU GESTIONAREA CONVERSAȚIILOR ===
+    
+    // Funcție pentru a crea o nouă conversație
+    fun createNewConversation(title: String = "New conversation") {
+        viewModelScope.launch {
+            // Folosim metoda repository-ului pentru a crea o nouă conversație
+            // care o și setează ca fiind activă
             conversationRepository.createNewConversation(title)
         }
     }
     
-    /**
-     * Șterge o conversație
-     */
+    // Funcție pentru a adăuga un mesaj la conversația activă
+    private fun addMessageToConversation(message: Message) {
+        viewModelScope.launch {
+            val activeConv = activeConversation.value
+            
+            if (activeConv == null) {
+                // Dacă nu există o conversație activă, creăm una nouă
+                val newTitle = if (message.type == MessageType.USER) {
+                    Conversation.generateTitleFromMessage(message.content)
+                } else {
+                    "New conversation"
+                }
+                
+                val newConversation = conversationRepository.createNewConversation(newTitle)
+                // Adăugăm mesajul la conversația nou creată
+                val updatedConversation = newConversation.copy(
+                    messages = listOf(message)
+                )
+                conversationRepository.updateConversation(updatedConversation)
+            } else {
+                // Adăugăm mesajul la conversația existentă
+                val updatedMessages = activeConv.messages.toMutableList()
+                updatedMessages.add(message)
+                
+                val updatedConversation = activeConv.copy(
+                    messages = updatedMessages,
+                    updatedAt = java.util.Date()
+                )
+                
+                conversationRepository.updateConversation(updatedConversation)
+            }
+        }
+    }
+    
+    // Funcție pentru a șterge o conversație
     fun deleteConversation(conversationId: String) {
         viewModelScope.launch {
             conversationRepository.deleteConversation(conversationId)
@@ -158,11 +478,13 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     
     // Funcție pentru a începe ascultarea
     fun startListening() {
+        Log.d("ChatViewModel", "Starting simple voice recording")
         speechRecognitionService.startListening()
     }
     
     // Funcție pentru a opri ascultarea
     fun stopListening() {
+        Log.d("ChatViewModel", "Stop simple voice recording")
         speechRecognitionService.stopListening()
     }
     
@@ -170,10 +492,15 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     fun sendRecognizedText() {
         val recognizedText = _currentRecognizedText.value
         
+        Log.d("ChatViewModel", "Sending recognized text: '$recognizedText'")
+        
         if (recognizedText.isNotBlank()) {
             sendMessage(recognizedText)
             _currentRecognizedText.value = ""
             speechRecognitionService.clearRecognizedText()
+            Log.d("ChatViewModel", "Text has been sent and cleared")
+        } else {
+            Log.d("ChatViewModel", "Nothing sent, recognized text is empty")
         }
     }
     
@@ -185,119 +512,151 @@ class ChatViewModel(application: Application) : AndroidViewModel(application) {
     }
     
     // Funcție pentru a trimite un mesaj text
-    fun sendMessage(content: String) {
+    fun sendMessage(messageText: String) {
+        if (messageText.isBlank()) return
+        
         val userMessage = Message(
-            content = content,
+            content = messageText,
             type = MessageType.USER
         )
         
-        // Adăugăm mesajul în conversația activă
+        // Adăugăm mesajul utilizatorului la conversație
+        addMessageToConversation(userMessage)
+        
+        // Generăm răspunsul de la API
+        getAIResponse(messageText)
+    }
+    
+    // Funcție pentru a obține răspunsul de la API
+    private fun getAIResponse(userQuestion: String) {
         viewModelScope.launch {
-            // Dacă este primul mesaj, folosim-l pentru a genera automat un titlu dacă titlul este generic
-            activeConversation.value?.let { conversation ->
-                if (conversation.messages.isEmpty() && conversation.title == "Conversație nouă") {
-                    val newTitle = Conversation.generateTitleFromMessage(content)
-                    renameConversation(conversation.id, newTitle)
-                }
-            }
+            _isLoading.value = true
             
-            // Adăugăm mesajul utilizatorului
-            conversationRepository.addMessageToActiveConversation(userMessage)
-            
-            // Adăugăm un mesaj temporar pentru asistent
-            val tempAssistantMessage = Message(
-                content = "...",
+            // Adăugăm un mesaj temporar care indică încărcarea
+            val loadingMessage = Message(
+                content = "Generating the response...",
                 type = MessageType.ASSISTANT,
                 isProcessing = true
             )
+            addMessageToConversation(loadingMessage)
             
-            conversationRepository.addMessageToActiveConversation(tempAssistantMessage)
-            
-            // Cerem răspunsul de la API
-            requestAIResponse()
-        }
-    }
-    
-    // Funcție pentru a cere răspunsul de la API
-    private suspend fun requestAIResponse() {
-        _isLoading.value = true
-        try {
-            // Obținem conversația activă actualizată cu mesajele noi
-            val currentConversation = activeConversation.value ?: return
-            
-            // Convertim mesajele pentru API
-            val aiMessages = convertToAIMessages(currentConversation.messages)
-            
-            // Obținem răspunsul
-            val response = aiApiService.getAIResponse(aiMessages)
-            
-            // Înlocuim mesajul temporar cu răspunsul real
-            val messages = currentConversation.messages.toMutableList()
-            // Verificăm dacă ultimul mesaj este mesajul de procesare
-            if (messages.lastOrNull()?.isProcessing == true) {
-                // Înlocuim mesajul temporar cu răspunsul real
-                messages.removeAt(messages.size - 1)
+            try {
+                // Pregătim istoricul conversației pentru a păstra contextul
+                val messageHistory = mutableListOf<AIMessage>()
+                
+                // Adăugăm un sistem prompt specific pentru analiza conversației
+                messageHistory.add(AIMessage(
+                    role = "system",
+                    content = "You are an intelligent voice assistant. " +
+                            "Extract the questions from the user's conversation and answer only to them, concisely and clearly with helpful and accurate information. " +
+                            "If there are no explicit questions, interpret the user's intent and provide a useful response. Always respond in speakers language." +
+                            "IMPORTANT: only structured and clear answers to questions."
+                ))
+                
+                // Adăugăm mesajul curent al utilizatorului (care conține conversația transcrisă)
+                messageHistory.add(AIMessage(
+                    role = "user",
+                    content = userQuestion
+                ))
+                
+                // Obținem răspunsul de la API
+                val response = aiApiService.getAIResponse(messageHistory)
+                
+                // Înlocuim mesajul de loading cu răspunsul primit
                 val assistantMessage = Message(
                     content = response,
                     type = MessageType.ASSISTANT
                 )
-                messages.add(assistantMessage)
                 
-                // Actualizăm conversația
-                val updatedConversation = currentConversation.copy(messages = messages)
-                conversationRepository.updateConversation(updatedConversation)
-            }
-        } catch (e: Exception) {
-            // În caz de eroare, actualizăm mesajul temporar cu un mesaj de eroare
-            activeConversation.value?.let { conversation ->
-                val messages = conversation.messages.toMutableList()
-                if (messages.lastOrNull()?.isProcessing == true) {
-                    messages[messages.size - 1] = Message(
-                        content = "S-a produs o eroare. Te rog să încerci din nou.",
-                        type = MessageType.ASSISTANT
+                // Actualizăm conversația pentru a înlocui mesajul de loading cu răspunsul final
+                activeConversation.value?.let { conversation ->
+                    val updatedMessages = conversation.messages.toMutableList()
+                    
+                    // Găsim și înlocuim mesajul de loading
+                    val loadingIndex = updatedMessages.indexOfLast { it.isProcessing }
+                    if (loadingIndex != -1) {
+                        updatedMessages[loadingIndex] = assistantMessage
+                    } else {
+                        // În caz că nu găsim mesajul de loading, adăugăm răspunsul la final
+                        updatedMessages.add(assistantMessage)
+                    }
+                    
+                    val updatedConversation = conversation.copy(
+                        messages = updatedMessages,
+                        updatedAt = java.util.Date()
                     )
                     
-                    // Actualizăm conversația
-                    val updatedConversation = conversation.copy(messages = messages)
+                    conversationRepository.updateConversation(updatedConversation)
+                    
+                    // Citim automat răspunsul asistentului
+                    setSelectedMessageForTts(assistantMessage)
+                }
+            } catch (e: Exception) {
+                // În caz de eroare, înlocuim mesajul de loading cu mesajul de eroare
+                val errorMessage = Message(
+                    content = "Error: ${e.message}",
+                    type = MessageType.ASSISTANT
+                )
+                
+                // Actualizăm conversația pentru a înlocui mesajul de loading cu mesajul de eroare
+                activeConversation.value?.let { conversation ->
+                    val updatedMessages = conversation.messages.toMutableList()
+                    
+                    // Găsim și înlocuim mesajul de loading
+                    val loadingIndex = updatedMessages.indexOfLast { it.isProcessing }
+                    if (loadingIndex != -1) {
+                        updatedMessages[loadingIndex] = errorMessage
+                    } else {
+                        // În caz că nu găsim mesajul de loading, adăugăm mesajul de eroare la final
+                        updatedMessages.add(errorMessage)
+                    }
+                    
+                    val updatedConversation = conversation.copy(
+                        messages = updatedMessages,
+                        updatedAt = java.util.Date()
+                    )
+                    
                     conversationRepository.updateConversation(updatedConversation)
                 }
+            } finally {
+                _isLoading.value = false
             }
-        } finally {
-            _isLoading.value = false
         }
     }
     
-    // Funcție pentru a converti mesajele noastre în formatul pentru API
-    private fun convertToAIMessages(messages: List<Message>): List<AIMessage> {
-        val aiMessages = mutableListOf<AIMessage>()
+    // === FUNCȚII TTS ===
+    
+    /**
+     * Setează mesajul selectat pentru TTS și pornește audio
+     */
+    fun setSelectedMessageForTts(message: Message?) {
+        _selectedMessageForTts.value = message
         
-        // Adăugăm un sistem prompt pentru a instrui modelul
-        aiMessages.add(
-            AIMessage(
-                role = "system",
-                content = "Ești un asistent vocal inteligent. Extrage întrebările din conversația utilizatorului și răspunde-le cu informații utile și precise. Dacă nu există întrebări explicite, interpretează intenția utilizatorului și oferă un răspuns util."
-            )
-        )
-        
-        // Luăm ultimele 10 mesaje din conversație pentru context
-        val recentMessages = messages.takeLast(10).filterNot { it.isProcessing }
-        
-        for (message in recentMessages) {
-            val role = when (message.type) {
-                MessageType.USER -> "user"
-                MessageType.ASSISTANT -> "assistant"
-            }
-            
-            aiMessages.add(AIMessage(role = role, content = message.content))
+        message?.let {
+            textToSpeechService.speak(it.content)
         }
-        
-        return aiMessages
     }
     
-    // Curățăm resursele la final
+    /**
+     * Oprește playback-ul TTS
+     */
+    fun stopTts() {
+        textToSpeechService.stop()
+        _selectedMessageForTts.value = null
+    }
+    
+    /**
+     * Schimbă vocea TTS
+     */
+    fun setTtsVoice(voice: Voice) {
+        textToSpeechService.setVoice(voice)
+    }
+    
     override fun onCleared() {
         super.onCleared()
-        speechRecognitionService.release()
         textToSpeechService.shutdown()
+        speechRecognitionService.release()
+        diarizationService.release()
+        transcriptionService.release()
     }
 } 

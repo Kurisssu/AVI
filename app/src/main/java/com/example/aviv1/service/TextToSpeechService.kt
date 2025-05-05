@@ -75,13 +75,13 @@ class TextToSpeechService(private val context: Context) : TextToSpeech.OnInitLis
         if (status == TextToSpeech.SUCCESS) {
             Log.d(TAG, "TTS initialization successful")
             
-            // Setăm limba română dacă este disponibilă
-            val locRomanian = Locale("ro", "RO")
+            // Use English as default language
+            val locEnglish = Locale.US
             val locDefault = Locale.getDefault()
             
-            val result = if (textToSpeech?.isLanguageAvailable(locRomanian) == TextToSpeech.LANG_AVAILABLE) {
-                textToSpeech?.setLanguage(locRomanian)
-                Log.d(TAG, "TTS language set to Romanian")
+            val result = if (textToSpeech?.isLanguageAvailable(locEnglish) == TextToSpeech.LANG_AVAILABLE) {
+                textToSpeech?.setLanguage(locEnglish)
+                Log.d(TAG, "TTS language set to English (US)")
                 true
             } else if (textToSpeech?.isLanguageAvailable(locDefault) == TextToSpeech.LANG_AVAILABLE) {
                 textToSpeech?.setLanguage(locDefault)

@@ -13,8 +13,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Send
+import androidx.compose.material.icons.filled.Group
 import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.MicOff
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.ElevatedCard
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -28,6 +30,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
+import android.util.Log
 
 @Composable
 fun ChatInput(
@@ -36,7 +39,10 @@ fun ChatInput(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     onSendMessage: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isDiarizationRecording: Boolean = false,
+    onStartDiarizationRecording: () -> Unit = {},
+    onStopDiarizationRecording: () -> Unit = {}
 ) {
     Row(
         modifier = modifier
@@ -44,6 +50,15 @@ fun ChatInput(
             .padding(16.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
+        // Butonul pentru diarizare/înregistrare conversații
+        DiarizationButton(
+            isRecording = isDiarizationRecording,
+            onStartRecording = onStartDiarizationRecording,
+            onStopRecording = onStopDiarizationRecording
+        )
+        
+        Spacer(modifier = Modifier.width(8.dp))
+        
         // Bara de text
         ElevatedCard(
             modifier = Modifier
@@ -56,7 +71,7 @@ fun ChatInput(
                     .padding(16.dp)
             ) {
                 Text(
-                    text = if (recognizedText.isNotEmpty()) recognizedText else "Apasă pe microfon pentru a începe înregistrarea",
+                    text = if (recognizedText.isNotEmpty()) recognizedText else "Tap the microphone to start recording",
                     style = MaterialTheme.typography.bodyLarge,
                     color = if (recognizedText.isNotEmpty()) 
                         MaterialTheme.colorScheme.onSurface 
@@ -85,7 +100,7 @@ fun ChatInput(
 }
 
 @Composable
-fun RecordButton(
+fun DiarizationButton(
     isRecording: Boolean,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
@@ -102,6 +117,48 @@ fun RecordButton(
         },
         modifier = modifier.scale(scale),
         containerColor = if (isRecording) 
+            MaterialTheme.colorScheme.tertiary
+        else 
+            MaterialTheme.colorScheme.tertiaryContainer
+    ) {
+        Icon(
+            imageVector = Icons.Default.RecordVoiceOver,
+            contentDescription = if (isRecording) 
+                "Stop conversation recording" 
+            else 
+                "Record conversation",
+            tint = if (isRecording)
+                MaterialTheme.colorScheme.onTertiary
+            else
+                MaterialTheme.colorScheme.onTertiaryContainer
+        )
+    }
+}
+
+@Composable
+fun RecordButton(
+    isRecording: Boolean,
+    onStartRecording: () -> Unit,
+    onStopRecording: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val scale by animateFloatAsState(
+        targetValue = if (isRecording) 1.2f else 1.0f,
+        label = "scale"
+    )
+    
+    FloatingActionButton(
+        onClick = { 
+            if (isRecording) {
+                Log.d("ChatInput", "RecordButton: Stop recording")
+                onStopRecording()
+            } else {
+                Log.d("ChatInput", "RecordButton: Start recording")
+                onStartRecording()
+            }
+        },
+        modifier = modifier.scale(scale),
+        containerColor = if (isRecording) 
             MaterialTheme.colorScheme.error 
         else 
             MaterialTheme.colorScheme.primary
@@ -109,12 +166,12 @@ fun RecordButton(
         if (isRecording) {
             Icon(
                 imageVector = Icons.Default.MicOff,
-                contentDescription = "Oprește înregistrarea"
+                contentDescription = "Stop recording"
             )
         } else {
             Icon(
                 imageVector = Icons.Default.Mic,
-                contentDescription = "Începe înregistrarea"
+                contentDescription = "Start recording"
             )
         }
     }
@@ -127,7 +184,14 @@ fun SendButton(
     modifier: Modifier = Modifier
 ) {
     FloatingActionButton(
-        onClick = { if (isEnabled) onSendMessage() },
+        onClick = { 
+            if (isEnabled) {
+                Log.d("ChatInput", "SendButton: Send message")
+                onSendMessage()
+            } else {
+                Log.d("ChatInput", "SendButton: Button disabled, can't send")
+            }
+        },
         modifier = modifier,
         containerColor = if (isEnabled)
             MaterialTheme.colorScheme.primaryContainer
@@ -136,7 +200,7 @@ fun SendButton(
     ) {
         Icon(
             imageVector = Icons.AutoMirrored.Filled.Send,
-            contentDescription = "Trimite mesajul",
+            contentDescription = "Send message",
             tint = if (isEnabled) 
                 MaterialTheme.colorScheme.onPrimaryContainer 
             else 
@@ -160,9 +224,31 @@ fun RecordingIndicator(modifier: Modifier = Modifier) {
         )
         
         Text(
-            text = "Înregistrare în curs...",
+            text = "Recording in progress...",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error
+        )
+    }
+}
+
+@Composable
+fun DiarizationRecordingIndicator(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.padding(8.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .clip(CircleShape)
+                .background(MaterialTheme.colorScheme.tertiary)
+                .padding(end = 8.dp)
+        )
+        
+        Text(
+            text = "Conversation recording in progress...",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.tertiary
         )
     }
 } 

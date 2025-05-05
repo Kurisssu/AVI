@@ -32,9 +32,20 @@ class SpeechRecognitionService(private val context: Context) {
         Log.d(TAG, "Initializing speech recognition service")
         if (SpeechRecognizer.isRecognitionAvailable(context)) {
             Log.d(TAG, "Speech recognition is available")
-            speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
-            speechRecognizer?.setRecognitionListener(recognitionListener)
-            Log.d(TAG, "Speech recognizer created and listener set")
+            
+            // Verifică dacă deja există un SpeechRecognizer
+            if (speechRecognizer != null) {
+                Log.d(TAG, "SpeechRecognizer deja existent, îl eliberăm mai întâi")
+                release()
+            }
+            
+            try {
+                speechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
+                speechRecognizer?.setRecognitionListener(recognitionListener)
+                Log.d(TAG, "Speech recognizer created and listener set successfully")
+            } catch (e: Exception) {
+                Log.e(TAG, "Error creating speech recognizer: ${e.message}", e)
+            }
         } else {
             Log.e(TAG, "Speech recognition is not available on this device")
         }
@@ -46,6 +57,18 @@ class SpeechRecognitionService(private val context: Context) {
             Log.d(TAG, "Already listening, returning")
             return
         }
+        
+        // Verificăm dacă SpeechRecognizer este inițializat
+        if (speechRecognizer == null) {
+            Log.e(TAG, "SpeechRecognizer nu este inițializat, reinițializăm")
+            initialize()
+            
+            // Verificăm din nou după inițializare
+            if (speechRecognizer == null) {
+                Log.e(TAG, "Nu s-a putut inițializa SpeechRecognizer, ieșim")
+                return
+            }
+        }
 
         val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
@@ -55,12 +78,18 @@ class SpeechRecognitionService(private val context: Context) {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE, "ro-RO") // Setăm limba română
         }
 
-        Log.d(TAG, "Starting speech recognition with intent")
-        _isRecording.value = true
-        shouldAppendResults = _recognizedText.value.isNotEmpty()
-        speechRecognizer?.startListening(intent)
-        isListening = true
-        Log.d(TAG, "Speech recognition started")
+        try {
+            Log.d(TAG, "Starting speech recognition with intent")
+            _isRecording.value = true
+            shouldAppendResults = _recognizedText.value.isNotEmpty()
+            speechRecognizer?.startListening(intent)
+            isListening = true
+            Log.d(TAG, "Speech recognition started successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting speech recognition: ${e.message}", e)
+            _isRecording.value = false
+            isListening = false
+        }
     }
 
     fun stopListening() {

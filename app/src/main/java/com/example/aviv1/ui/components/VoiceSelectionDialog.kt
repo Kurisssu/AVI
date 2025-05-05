@@ -36,12 +36,12 @@ fun VoiceSelectionDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Selectează o voce") },
+        title = { Text("Select a voice") },
         text = {
             Column {
                 if (voices.isEmpty()) {
                     Text(
-                        text = "Nu există voci disponibile.",
+                        text = "No voices available.",
                         style = MaterialTheme.typography.bodyMedium
                     )
                 } else {
@@ -62,7 +62,7 @@ fun VoiceSelectionDialog(
         },
         confirmButton = {
             TextButton(onClick = onDismiss) {
-                Text("Închide")
+                Text("Close")
             }
         }
     )

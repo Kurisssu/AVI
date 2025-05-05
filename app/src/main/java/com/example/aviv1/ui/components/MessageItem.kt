@@ -76,7 +76,7 @@ fun MessageItem(
                 ) {
                     Icon(
                         imageVector = if (isPlaying) Icons.Default.Pause else Icons.AutoMirrored.Filled.VolumeUp,
-                        contentDescription = if (isPlaying) "Oprește redarea" else "Redă mesajul",
+                        contentDescription = if (isPlaying) "Stop playback" else "Play message",
                         tint = MaterialTheme.colorScheme.primary
                     )
                 }

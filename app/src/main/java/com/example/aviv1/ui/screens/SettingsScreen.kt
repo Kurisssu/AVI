@@ -45,10 +45,10 @@ fun SettingsScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Setări") },
+                title = { Text("Settings") },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = "Înapoi")
+                        Icon(Icons.Default.ArrowBack, contentDescription = "Back")
                     }
                 }
             )
@@ -63,7 +63,7 @@ fun SettingsScreen(
                 modifier = Modifier.padding(16.dp)
             ) {
                 Text(
-                    text = "Setări Text-to-Speech",
+                    text = "Text-to-Speech Settings",
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(16.dp)
                 )
@@ -71,9 +71,9 @@ fun SettingsScreen(
                 HorizontalDivider()
                 
                 ListItem(
-                    headlineContent = { Text("Voce pentru text-to-speech") },
+                    headlineContent = { Text("Text-to-speech voice") },
                     supportingContent = { 
-                        val voiceName = currentTtsVoice?.name ?: "Nicio voce selectată"
+                        val voiceName = currentTtsVoice?.name ?: "No voice selected"
                         Text(
                             text = voiceName,
                             maxLines = 1,

@@ -17,6 +17,7 @@ import com.example.aviv1.ui.screens.ChatScreen
 import com.example.aviv1.ui.screens.ConversationsScreen
 import com.example.aviv1.ui.screens.MainScreen
 import com.example.aviv1.ui.screens.SettingsScreen
+import com.example.aviv1.ui.screens.SpeakerDiarizationScreen
 import com.example.aviv1.ui.theme.AVIV1Theme
 
 class MainActivity : ComponentActivity() {
@@ -44,6 +45,7 @@ sealed class AppScreens(val route: String) {
     object Chat : AppScreens("chat")
     object Conversations : AppScreens("conversations")
     object Settings : AppScreens("settings")
+    object Diarization : AppScreens("diarization")
 }
 
 // Implementarea navigării
@@ -61,7 +63,8 @@ fun AppNavHost(
         composable(route = AppScreens.Main.route) {
             MainScreen(
                 onNavigateToChat = { navController.navigate(AppScreens.Conversations.route) },
-                onNavigateToSettings = { navController.navigate(AppScreens.Settings.route) }
+                onNavigateToSettings = { navController.navigate(AppScreens.Settings.route) },
+                onNavigateToDiarization = { navController.navigate(AppScreens.Diarization.route) }
             )
         }
         
@@ -89,6 +92,12 @@ fun AppNavHost(
         
         composable(route = AppScreens.Settings.route) {
             SettingsScreen(
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(route = AppScreens.Diarization.route) {
+            SpeakerDiarizationScreen(
                 onNavigateBack = { navController.popBackStack() }
             )
         }

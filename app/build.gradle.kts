@@ -85,6 +85,15 @@ dependencies {
     implementation(libs.androidx.navigation.runtime.android)
     implementation(libs.androidx.navigation.compose)
 
+    // Picovoice Falcon pentru detectare dialog între două persoane
+    implementation(libs.falcon.android)
+    implementation(libs.android.voice.processor.v101)
+    
+    // Picovoice Leopard pentru transcrierea audio (STT)
+    implementation(libs.leopard.android.v200)
+    /*// Picovoice Cheetah pentru transcrierea audio în timp real (opțional)
+    implementation("ai.picovoice:cheetah-android:1.0.3")*/
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

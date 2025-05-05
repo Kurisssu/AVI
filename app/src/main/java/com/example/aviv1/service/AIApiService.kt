@@ -1,5 +1,6 @@
 package com.example.aviv1.service
 
+import android.content.Context
 import com.google.gson.annotations.SerializedName
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
@@ -61,17 +62,31 @@ interface AIApiInterface {
 class AIApiService {
     companion object {
         private const val BASE_URL = "https://api.openai.com/"
-        private const val API_KEY = "" // Trebuie completat cu cheia API
-
+        
         private val loggingInterceptor = HttpLoggingInterceptor().apply {
             level = HttpLoggingInterceptor.Level.BODY
         }
-
-        private val okHttpClient = OkHttpClient.Builder()
+    }
+    
+    private var apiInterface: AIApiInterface? = null
+    private var apiKey: String = ""
+    
+    // Metodă pentru a inițializa serviciul cu contextul
+    fun initialize(context: Context) {
+        // Obținem cheia API de la ApiKeyManager
+        val apiKeyManager = ApiKeyManager.getInstance(context)
+        apiKey = apiKeyManager.getOpenAIApiKey()
+        
+        // Creăm API Interface cu cheia corectă
+        createApiInterface()
+    }
+    
+    private fun createApiInterface() {
+        val okHttpClient = OkHttpClient.Builder()
             .addInterceptor { chain ->
                 val original = chain.request()
                 val request = original.newBuilder()
-                    .header("Authorization", "Bearer $API_KEY")
+                    .header("Authorization", "Bearer $apiKey")
                     .method(original.method, original.body)
                     .build()
                 chain.proceed(request)
@@ -82,33 +97,25 @@ class AIApiService {
             .writeTimeout(30, TimeUnit.SECONDS)
             .build()
 
-        private val retrofit = Retrofit.Builder()
+        val retrofit = Retrofit.Builder()
             .baseUrl(BASE_URL)
             .client(okHttpClient)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
 
-        val apiService: AIApiInterface = retrofit.create(AIApiInterface::class.java)
+        apiInterface = retrofit.create(AIApiInterface::class.java)
     }
-
+    
     suspend fun getAIResponse(userMessages: List<AIMessage>): String {
         try {
-            // Adaugăm un sistem prompt pentru a instrui modelul să extragă și să răspundă la întrebări
-            val systemPrompt = AIMessage(
-                role = "system",
-                content = "Ești un asistent vocal inteligent. Extrage întrebările din conversația utilizatorului și răspunde-le cu informații utile și precise. Dacă nu există întrebări explicite, interpretează intenția utilizatorului și oferă un răspuns util."
-            )
-            
-            val allMessages = mutableListOf(systemPrompt)
-            allMessages.addAll(userMessages)
-            
+            // Folosim direct mesajele primite, deoarece system prompt-ul este adăugat deja în ViewModel
             val requestBody = AIRequestBody(
-                messages = allMessages
+                messages = userMessages
             )
             
-            val response = apiService.generateResponse(requestBody)
+            val response = apiInterface?.generateResponse(requestBody)
             
-            if (response.isSuccessful) {
+            if (response?.isSuccessful == true) {
                 response.body()?.let { aiResponse ->
                     if (aiResponse.choices.isNotEmpty()) {
                         return aiResponse.choices[0].message.content

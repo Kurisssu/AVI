@@ -15,6 +15,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -24,19 +25,25 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.aviv1.model.DialogSegment
 import com.example.aviv1.model.Message
 import com.example.aviv1.ui.components.ChatInput
+import com.example.aviv1.ui.components.DiarizationRecordingIndicator
 import com.example.aviv1.ui.components.MessageItem
 import com.example.aviv1.ui.components.RecordingIndicator
 import com.example.aviv1.util.PermissionUtils
@@ -63,18 +70,18 @@ fun ChatScreen(
                 TopAppBar(
                     title = { 
                         Text(
-                            text = "Asistent Vocal Inteligent",
+                            text = "Intelligent Voice Assistant",
                             style = MaterialTheme.typography.titleLarge
                         )
                     },
                     navigationIcon = {
                         IconButton(onClick = onNavigateBack) {
-                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Înapoi la conversații")
+                            Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back to conversations")
                         }
                     },
                     actions = {
                         IconButton(onClick = onNavigateToConversations) {
-                            Icon(Icons.Default.Settings, contentDescription = "Conversații")
+                            Icon(Icons.Default.Settings, contentDescription = "Settings")
                         }
                     }
                 )
@@ -98,6 +105,11 @@ fun ChatScreenContent(paddingValues: PaddingValues) {
     val selectedMessageForTts by viewModel.selectedMessageForTts.collectAsState()
     val isTtsPlaying by viewModel.isTtsPlaying.collectAsState()
     
+    // State pentru diarizare
+    val isDiarizationRecording by viewModel.isDiarizationRecording.collectAsState()
+    val isDiarizationProcessing by viewModel.isDiarizationProcessing.collectAsState()
+    val diarizationSegments by viewModel.diarizationSegments.collectAsState()
+    
     val listState = rememberLazyListState()
     val coroutineScope = rememberCoroutineScope()
     
@@ -110,85 +122,83 @@ fun ChatScreenContent(paddingValues: PaddingValues) {
         }
     }
     
+    // Trimitem automat conversația transcrisă către API când e gata
+    LaunchedEffect(diarizationSegments) {
+        if (diarizationSegments.isNotEmpty() && diarizationSegments.any { it.text.isNotEmpty() } && !isDiarizationRecording && !isDiarizationProcessing) {
+            viewModel.sendDiarizationResultToChat()
+        }
+    }
+    
     Box(
-        modifier = Modifier.fillMaxSize()
+        modifier = Modifier
+            .fillMaxSize()
+            .padding(paddingValues)
     ) {
-        Surface(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-        ) {
-            Column(
-                modifier = Modifier.fillMaxSize()
+        Column(modifier = Modifier.fillMaxSize()) {
+            // Spațiul principal cu mesajele
+            LazyColumn(
+                state = listState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(horizontal = 16.dp)
             ) {
-                // Lista de mesaje
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .fillMaxWidth()
-                ) {
-                    if (messages.isEmpty()) {
-                        // Mesaj inițial dacă nu există conversație
-                        Text(
-                            text = "Bun venit la Asistentul Vocal Inteligent!\n\n" +
-                                   "1. Apasă pe butonul de microfon pentru a începe înregistrarea\n" +
-                                   "2. Vorbește și apasă din nou pentru a opri înregistrarea\n" +
-                                   "3. Apasă pe butonul de trimitere pentru a trimite mesajul către AI\n" +
-                                   "4. Apasă pe butonul de redare pentru a asculta răspunsul",
-                            style = MaterialTheme.typography.bodyLarge,
-                            textAlign = TextAlign.Center,
-                            modifier = Modifier
-                                .padding(32.dp)
-                                .align(Alignment.Center)
-                        )
-                    } else {
-                        LazyColumn(
-                            state = listState,
-                            modifier = Modifier
-                                .fillMaxSize()
-                                .padding(horizontal = 8.dp)
-                        ) {
-                            items(messages) { message ->
-                                MessageItem(
-                                    message = message,
-                                    isPlaying = selectedMessageForTts == message && isTtsPlaying,
-                                    onPlayClick = { viewModel.speakMessage(it) },
-                                    onStopClick = { viewModel.stopSpeaking() }
-                                )
-                            }
-                        }
-                    }
-                    
-                    // Indicator de încărcare
-                    if (isLoading) {
-                        CircularProgressIndicator(
-                            modifier = Modifier
-                                .align(Alignment.Center)
-                                .padding(16.dp)
-                        )
-                    }
-                }
-
-                HorizontalDivider()
-                
-                // Indicator de înregistrare
-                if (isRecording) {
-                    RecordingIndicator(
-                        modifier = Modifier.align(Alignment.CenterHorizontally)
+                items(messages) { message ->
+                    MessageItem(
+                        message = message,
+                        isPlaying = isTtsPlaying && selectedMessageForTts == message,
+                        onPlayClick = { viewModel.setSelectedMessageForTts(message) },
+                        onStopClick = { viewModel.stopTts() }
                     )
                 }
-                
-                // Input bar
-                ChatInput(
-                    recognizedText = recognizedText,
-                    isRecording = isRecording,
-                    onStartRecording = { viewModel.startListening() },
-                    onStopRecording = { viewModel.stopListening() },
-                    onSendMessage = { viewModel.sendRecognizedText() },
+            }
+            
+            // Separator
+            HorizontalDivider()
+            
+            // Indicator de înregistrare voce
+            if (isRecording) {
+                RecordingIndicator(
                     modifier = Modifier
-                        .navigationBarsPadding()
-                        .imePadding()
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .align(Alignment.CenterHorizontally)
                 )
+            }
+            
+            // Indicator de înregistrare conversație (diarizare)
+            if (isDiarizationRecording || isDiarizationProcessing) {
+                DiarizationRecordingIndicator(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
+                        .align(Alignment.CenterHorizontally)
+                )
+            }
+            
+            // Input de chat
+            ChatInput(
+                recognizedText = recognizedText,
+                isRecording = isRecording,
+                onStartRecording = { viewModel.startListening() },
+                onStopRecording = { viewModel.stopListening() },
+                onSendMessage = { viewModel.sendRecognizedText() },
+                isDiarizationRecording = isDiarizationRecording,
+                onStartDiarizationRecording = { viewModel.startDiarizationRecording() },
+                onStopDiarizationRecording = { viewModel.stopDiarizationRecording() },
+                modifier = Modifier
+                    .navigationBarsPadding()
+                    .imePadding()
+            )
+        }
+        
+        // Indicator de încărcare pentru răspunsul AI
+        if (isLoading) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                CircularProgressIndicator()
             }
         }
     }
